@@ -1,0 +1,751 @@
+ĐỀ CƯƠNG ĐỊNH HƯỚNG DỰ ÁN
+AI VISION ASSISTANT
+Hệ thống mô tả hình ảnh và hỏi đáp đa phương thức bằng tiếng Việt
+Multimodal Image Captioning & Visual Question Answering (VQA)
+THÀNH PHẦN
+PHƯƠNG ÁN
+Mục tiêu
+Pretrained Vision-Language Model + fine-tuning tiếng Việt
+Model mục tiêu
+Qwen3-VL-2B-Instruct; dự phòng SmolVLM-500M-Instruct
+Phần cứng
+NVIDIA RTX 3050 / RTX 4050; RAM máy 32GB
+Kỹ thuật huấn luyện
+Supervised Fine-Tuning bằng LoRA / QLoRA
+Ứng dụng
+Python, PyTorch, Transformers, Gradio
+Sản phẩm
+Ứng dụng VQA + Captioning, Adapter và báo cáo thực nghiệm
+Phiên bản định hướng 1.0  |  Ngày 18/11/2026
+Tài liệu dùng để chia sẻ ý tưởng, phân công xây dựng và thống nhất phương án kỹ thuật. Chưa phải báo cáo kết quả thực nghiệm; tất cả chỉ số đo sẽ được điền sau khi chạy thật.
+TÓM TẮT ĐIỀU HÀNH
+Dự án xây dựng một ứng dụng cho phép người dùng tải ảnh và (1) nhận mô tả ảnh tự động bằng tiếng Việt, hoặc (2) đặt câu hỏi tự nhiên về nội dung ảnh để AI trả lời. Hệ thống dùng mô hình thị giác–ngôn ngữ (Vision-Language Model, VLM) đã huấn luyện sẵn; nhóm thực hiện Supervised Fine-Tuning (SFT) bằng LoRA/QLoRA trên dữ liệu tiếng Việt và đánh giá thay đổi chất lượng so với mô hình gốc.
+Định hướng chính: Qwen3-VL-2B-Instruct là mô hình mục tiêu; SmolVLM-500M-Instruct làm phương án ít VRAM. Với RTX 3050/4050, việc chọn cấu hình phải dựa trên VRAM thực tế (4/6/8GB), không thể suy ra từ RAM hệ thống 32GB. Với máy 4–6GB VRAM, ưu tiên huấn luyện SmolVLM tại chỗ hoặc huấn luyện Qwen trên GPU đám mây rồi tải adapter về.
+Điểm khác biệt của đồ án so với demo chỉ gọi API: có dataset và tiền xử lý riêng, có vòng lặp training thật, lưu LoRA adapter, đánh giá các metric chuẩn, phân tích lỗi và giao diện so sánh Base/Fine-tuned.
+Quyết định và nguyên tắc thực hiện
+Ưu tiên hoàn thành VQA tiếng Việt trước; triển khai Captioning như tác vụ thứ hai, sau đó nghiên cứu OCR/YOLO nếu còn nguồn lực.
+Không huấn luyện ViT/LLM từ đầu; không dùng API thương mại làm phần cốt lõi của đồ án.
+Một ảnh có nhiều QA/caption phải nằm trọn trong cùng train/validation/test; không rò rỉ dữ liệu.
+Không công bố kết quả đo định lượng cho đến khi chạy bộ kiểm thử độc lập.
+Tách training, inference và UI thành module để thay mô hình dễ dàng.
+1. MỤC TIÊU, PHẠM VI VÀ VÍ DỤ
+1.1. Mục tiêu nghiên cứu
+Tìm hiểu kiến trúc VLM: Image Processor, Vision Transformer (ViT), Vision-Language Merger/Projector, LLM/Decoder và cơ chế kết nối ảnh–văn bản.
+Áp dụng SFT + LoRA/QLoRA để điều chỉnh mô hình pretrained trên các bộ dữ liệu tiếng Việt.
+Thiết kế thí nghiệm so sánh Base Model, VQA-only fine-tuned, Multi-task fine-tuned trên cùng test set.
+Đo chất lượng câu trả lời, chất lượng caption, tốc độ suy luận và bộ nhớ GPU.
+Phát triển sản phẩm cho người dùng cuối bằng Gradio, hỗ trợ nhập ảnh và câu hỏi.
+1.2. Phạm vi chức năng
+Mã
+Chức năng
+Mô tả/nghiệm thu
+F01
+Image Captioning
+Tải ảnh → sinh mô tả 1–2 câu tiếng Việt, không thêm chi tiết thiếu căn cứ.
+F02
+Visual Question Answering
+Tải ảnh + câu hỏi → trả lời bằng tiếng Việt dựa vào nội dung ảnh.
+F03
+Hỏi tiếp về cùng ảnh
+Lưu lịch sử hỏi đáp trong phiên (ngữ cảnh tùy chọn, kiểm soát token).
+F04
+So sánh mô hình
+Đưa cùng ảnh/câu hỏi vào Base và Base+LoRA, trình bày hai kết quả.
+F05
+Báo cáo thực nghiệm
+Loss curve, VQA EM/F1, caption metrics, latency, peak VRAM.
+F06
+Xử lý nhập liệu
+JPG/PNG/WebP; xoay đúng EXIF; chuẩn RGB; chặn ảnh hỏng/cỡ quá lớn.
+F07 (mở rộng)
+OCR VQA / đếm vật thể
+Câu hỏi đọc chữ, đếm vật thể; xem xét OCR/YOLO như module bổ sung.
+1.3. Ví dụ minh họa hoạt động
+Ví dụ A — VQA: Ảnh là bàn gỗ với ba quả táo đỏ, một đĩa và một cốc nước. Câu hỏi: “Trên bàn có bao nhiêu quả táo và chúng có màu gì?” Đáp án kỳ vọng: “Có 3 quả táo màu đỏ.”
+Ví dụ B — Captioning: Ảnh có một người đi xe đạp trên con đường có cây xanh. Prompt: “Hãy mô tả ảnh bằng tiếng Việt trong 1–2 câu.” Kết quả mong muốn: “Một người đang đi xe đạp trên đường, hai bên có nhiều cây xanh.”
+Ví dụ C — Từ chối suy đoán: Ảnh chỉ thấy một người đứng ngoài đường. Câu hỏi: “Người này tên gì?” Đáp án kỳ vọng: “Không thể xác định tên người này chỉ từ hình ảnh.”
+Các ảnh/ví dụ nêu trên chỉ để giải thích yêu cầu, không phải ảnh hoặc kết quả huấn luyện đã được xác minh.
+1.4. Ngoài phạm vi bản đầu
+Chưa hỗ trợ video trực tiếp, không huấn luyện full weights, chưa cần REST API public/đa người dùng, chưa bắt buộc hỗ trợ nhiều ảnh mỗi lượt, chưa cam kết nhận dạng chính xác chữ siêu nhỏ hay đếm vật thể đông/che khuất.
+2. KIẾN TRÚC HỆ THỐNG
+2.1. Kiến trúc phần mềm theo lớp
+[User: Web/Gradio]
+      | upload + question + mode
+      v
+[Application Layer]
+  - Validate ảnh, session, prompt templates
+      |
+      v
+[AI Engine]
+  - Model/Processor Factory
+  - Qwen3-VL hoặc SmolVLM
+  - Base Model hoặc Base + LoRA Adapter
+      |
+      v
+[Output + Evaluation]
+  - Caption/Answer, latency, peak VRAM
+  - Metrics/Results/Logs
+2.2. Kiến trúc bên trong VLM
+Dòng xử lý trừu tượng: Ảnh → tiền xử lý ảnh → Vision Encoder (ViT) → visual embeddings → merger/projector → mô hình ngôn ngữ đa phương thức → token đầu ra → giải mã thành tiếng Việt. Câu hỏi được tokenizer mã hóa và được mô hình xử lý cùng tín hiệu ảnh. Thực tế cấu trúc token/embedding do processor và chat template của từng model quản lý.
+Lưu ý kiến trúc: BLIP-2 dùng Q-Former với Cross-Attention để kết nối Vision Encoder và LLM, còn LLaVA-1.5 chủ yếu dùng MLP Projector; Qwen3-VL có thiết kế Vision-Language riêng và DeepStack. Nếu tiêu chí giảng viên bắt buộc hiện thực Cross-Attention theo BLIP-2, chọn BLIP-2 làm đối tượng nghiên cứu/đối chứng, không mô tả Qwen3-VL như thể dùng Q-Former.
+2.3. Luồng inference
+Image + Task + Optional Question
+   -> validation / EXIF / RGB
+   -> prompt template (caption | vqa)
+   -> AutoProcessor + chat template
+   -> Base Model [+ LoRA adapter]
+   -> generate(max_new_tokens, decoding config)
+   -> decode only generated assistant tokens
+   -> response + inference duration + memory metric
+2.4. Luồng training
+OpenViVQA + UIT-OpenViIC
+   -> raw / quality checks
+   -> clean, split by image, normalize schema
+   -> multimodal conversations + collator
+   -> quantized pretrained VLM (4-bit as supported)
+   -> LoRA adapters (freeze selected modules)
+   -> SFT train/evaluate/checkpoint
+   -> best LoRA adapter
+   -> independent evaluation and Gradio deployment
+2.5. Các module
+Module
+Nhiệm vụ chính
+Giao tiếp
+Data
+Download, validate, convert, split, augment nhẹ
+JSONL + image paths
+Model Factory
+Nạp processor/base/adapter, chọn dtype/quantization
+Model instance
+Training
+SFTTrainer/custom collator, checkpoint/resume
+Adapter + logs
+Inference
+Prompt, prepare inputs, generate, decode
+Caption/answer
+Evaluation
+Predict test set, metrics, lỗi, benchmark
+CSV/JSON/PNG charts
+UI
+Gradio, history, model selection, compare
+Callbacks gọi Inference
+3. PHẦN CỨNG, MODEL VÀ PHƯƠNG ÁN TÀI NGUYÊN
+3.1. Phân biệt RAM/VRAM và điều kiện GPU
+RAM máy 32GB chủ yếu giúp tải dataset và chạy hệ điều hành; VRAM trên card NVIDIA quyết định khả năng nạp model và backward pass. RTX 3050 có nhiều cấu hình VRAM; RTX 4050 Laptop thường 6GB. Bắt buộc chạy nvidia-smi/torch.cuda trước khi khóa cấu hình.
+VRAM phát hiện
+Suy luận
+Fine-tuning khuyến nghị
+4GB
+Ưu tiên SmolVLM; thử quantized Qwen rất thận trọng
+SmolVLM LoRA; Qwen trên cloud
+6GB
+Thử Qwen3-VL-2B 4-bit + ảnh nhỏ nếu được
+SmolVLM local; Qwen QLoRA trên cloud
+8GB
+Thử Qwen3-VL-2B 4-bit, giám sát VRAM
+Qwen QLoRA giới hạn tài nguyên (có nguy cơ OOM)
+>=12–16GB
+Qwen3-VL-2B thuận lợi hơn
+Qwen3-VL-2B QLoRA, thử multi-task
+Các ngưỡng là định hướng thử nghiệm chứ không phải cam kết model sẽ chạy: VRAM phụ thuộc ảnh, số visual tokens, max length, batch, dtype, attention implementation và thư viện.
+3.2. Lựa chọn mô hình
+Model
+Vai trò
+Ưu điểm
+Hạn chế
+Qwen3-VL-2B-Instruct
+Model mục tiêu chính
+VQA/caption/OCR mạnh, model card + code chính thức
+Nặng hơn GPU 4/6GB; tích hợp cần đúng phiên bản
+SmolVLM-500M-Instruct
+Dự phòng GPU yếu
+Nhỏ, cookbook SFT rõ, phù hợp demo local
+Chất lượng suy luận có thể thấp hơn
+BLIP-2 OPT 2.7B
+Mô hình tham chiếu
+Có Q-Former/Cross-Attention theo đề
+Model lớn, không ưu tiên train local
+LLaVA-1.5
+Tham khảo kiến trúc
+Nhiều hướng dẫn LoRA, pipeline ảnh + chat
+Model thường nặng đối với cấu hình này
+3.3. Công nghệ
+Lớp
+Công nghệ đề xuất
+Ngôn ngữ/runtime
+Python 3.11; WSL2/Ubuntu ưu tiên phần huấn luyện
+ML/DL
+PyTorch, CUDA, Hugging Face Transformers, Accelerate
+SFT / PEFT
+TRL, PEFT, bitsandbytes (LoRA/QLoRA)
+Dữ liệu
+Hugging Face Datasets, Pillow, OpenCV, JSONL
+Ứng dụng
+Gradio (có thể bổ sung FastAPI sau)
+Đánh giá
+evaluate, sacrebleu, bert-score, pandas, matplotlib
+Ghi log
+TensorBoard, CSV/JSON, YAML config
+4. DATASET: NGUỒN, CHUẨN HÓA VÀ CHIA TẬP
+4.1. Nguồn dữ liệu chính
+Dataset
+Tác vụ
+Quy mô công bố
+Nguồn
+OpenViVQA
+VQA tiếng Việt
+11.000+ ảnh; 37.000+ cặp hỏi–đáp
+huggingface.co/datasets/uitnlp/OpenViVQA-dataset
+UIT-OpenViIC
+Caption tiếng Việt
+13.100 ảnh; 61.241 mô tả
+uit-together.github.io/datasets/UIT-OpenViIC/
+VQA v2.0
+Tham khảo VQA tiếng Anh
+Bộ dữ liệu benchmark phổ biến
+visualqa.org
+ViOCRVQA (tùy chọn)
+Đọc chữ và VQA tiếng Việt
+Thêm khi muốn mở rộng OCR
+github.com/qhnhynmm/ViOCRVQA-Dataset
+OpenViVQA công khai train, dev và test; nhãn đáp án của test chính thức không công khai trong gói dataset. Để đánh giá đồ án, tạo validation riêng trong train và dùng dev làm test báo cáo khi phù hợp, đồng thời tôn trọng quy định benchmark. UIT-OpenViIC công bố train 9.088 ảnh / 41.238 captions, validation 2.011 / 10.002, test 2.001 / 10.001.
+4.2. Schema chung JSONL
+{"id":"vqa_0001",
+ "image":"data/processed/images/0001.jpg",
+ "task":"vqa",
+ "question":"Trên bàn có bao nhiêu quả táo?",
+ "answer":"Có 3 quả táo."}
+{"id":"caption_0001",
+ "image":"data/processed/images/0002.jpg",
+ "task":"caption",
+ "question":"Hãy mô tả bức ảnh bằng tiếng Việt.",
+ "answer":"Một người đang đi xe đạp trên đường."}
+4.3. Tiền xử lý và quản trị dữ liệu
+Tải dữ liệu gốc và lưu ở data/raw/, tuyệt đối không chỉnh sửa nguồn trong thư mục này.
+Kiểm tra file ảnh/annotation; đối chiếu đường dẫn; loại bản ghi trống, trùng hoàn toàn hoặc không đọc được.
+Chuẩn hóa EXIF Orientation và RGB; xử lý RGBA/ảnh bảng màu; giới hạn pixel; không làm thay đổi nội dung cảnh.
+Chuẩn hóa Unicode NFC, khoảng trắng, dấu câu; không xóa dấu tiếng Việt hoặc thay đổi ý nghĩa câu trả lời.
+Khử trùng lặp bằng SHA-256 hoặc perceptual hash; ảnh gần trùng nên được kiểm tra thủ công.
+Tách train/validation/test theo image_id (nếu cùng ảnh có nhiều QA/caption thì giữ cùng tập).
+Kiểm tra ảnh trùng giữa OpenViVQA và OpenViIC nếu trộn hai nguồn; bảo đảm không có ảnh test xuất hiện ở train.
+Lưu manifest chứa đường dẫn, nguồn, license, split, hash, task và phiên bản tiền xử lý.
+Kiểm tra quyền sử dụng; không mặc định quyền tải dataset đồng nghĩa được phép phân phối lại thương mại.
+4.4. Chiến lược đa tác vụ
+Thử nghiệm
+Tỷ lệ batch/sample VQA
+Caption
+Mục đích
+E1 - VQA only
+100%
+0%
+Baseline sau fine-tune cho hỏi đáp
+E2 - VQA ưu tiên
+70%
+30%
+Hỗ trợ thêm mô tả ảnh
+E3 - cân bằng
+50%
+50%
+So sánh sự đánh đổi giữa hai tác vụ
+Tỷ lệ lấy mẫu dùng trong train, không phải đặc điểm gốc của dataset. Không sử dụng val/test để tạo dữ liệu huấn luyện mới.
+4.5. Định dạng hội thoại multimodal
+sample = {
+  "images": ["data/processed/images/0001.jpg"],
+  "messages": [
+    {"role":"user", "content":[
+       {"type":"image"},
+       {"type":"text", "text":"Có bao nhiêu quả táo?"}
+    ]},
+    {"role":"assistant", "content":[
+       {"type":"text", "text":"Có 3 quả táo."}
+    ]}
+  ]
+}
+Processor + chat template của model phải chịu trách nhiệm chèn/đồng bộ token hình ảnh. Data collator phải mask padding và vùng không thuộc mục tiêu học; lý tưởng chỉ tính loss tại token trả lời của assistant. Không truncation cứng gây mất image token.
+5. CẤU TRÚC THƯ MỤC MÃ NGUỒN
+AI-Vision-Assistant/
+|-- app/
+|   |-- main.py                 # Gradio entry
+|   |-- components.py           # Image/chat/metrics UI
+|   `-- callbacks.py            # Button/selection events
+|-- src/
+|   |-- config.py
+|   |-- data/
+|   |   |-- download.py
+|   |   |-- prepare_vqa.py
+|   |   |-- prepare_caption.py
+|   |   |-- dataset.py
+|   |   `-- collator.py
+|   |-- models/
+|   |   |-- factory.py          # Model + processor + adapter
+|   |   |-- lora.py
+|   |   `-- inference.py
+|   |-- training/
+|   |   |-- train.py
+|   |   |-- callbacks.py
+|   |   `-- export.py
+|   |-- evaluation/
+|   |   |-- evaluate_vqa.py
+|   |   |-- evaluate_caption.py
+|   |   |-- benchmark.py
+|   |   `-- visualize.py
+|   `-- utils/
+|       |-- image_utils.py
+|       `-- text_utils.py
+|-- configs/
+|   |-- qwen_qlora.yaml
+|   |-- smolvlm_lora.yaml
+|   `-- inference.yaml
+|-- data/{raw,processed,samples}/
+|-- checkpoints/              # Ignored by Git
+|-- adapters/                 # PEFT weights
+|-- results/{predictions,metrics,plots}/
+|-- notebooks/
+|-- tests/
+|-- requirements.txt
+|-- README.md
+`-- .gitignore
+Nguyên tắc: source code nhỏ, rõ vai trò; data và checkpoint nặng đặt ngoài Git; mỗi lần training lưu config/seed/git commit hash. Inference không phụ thuộc module training.
+6. CÀI ĐẶT MÔI TRƯỜNG
+6.1. WSL2/Ubuntu và Python
+sudo apt update
+sudo apt install -y python3-venv git
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+nvidia-smi
+PyTorch CUDA cần cài theo phiên bản driver tương thích từ https://pytorch.org/get-started/locally/. Không cố định lệnh pip CUDA khi chưa biết card, driver và hệ điều hành. Sau khi PyTorch nhận GPU, cài các nhóm thư viện bên dưới và pin phiên bản đã test.
+pip install transformers accelerate datasets
+pip install peft trl bitsandbytes
+pip install pillow opencv-python qwen-vl-utils
+pip install gradio evaluate jiwer sacrebleu
+pip install bert-score matplotlib pandas pyyaml tensorboard
+6.2. Kiểm tra CUDA
+import torch
+print("PyTorch:", torch.__version__)
+print("CUDA:", torch.cuda.is_available())
+if torch.cuda.is_available():
+    gpu = torch.cuda.get_device_properties(0)
+    print("GPU:", gpu.name)
+    print("VRAM (GB):", round(gpu.total_memory / 1024**3, 2))
+    print("BF16 supported:", torch.cuda.is_bf16_supported())
+6.3. Kiểm soát môi trường
+Khóa phiên bản dependencies bằng requirements-lock.txt/uv.lock sau khi đã chạy thành công.
+Kiểm thử imports của transformers, trl, peft, bitsandbytes và processor của model; các ví dụ online có thể cần phiên bản khác nhau.
+Lưu metadata: Python, OS, driver NVIDIA, torch, CUDA build, transformers, GPU và tổng VRAM.
+Có phương án sử dụng Colab/máy cloud để fine-tune nếu VRAM local không đủ; tải adapter về local để inference.
+7. QUY TRÌNH HUẤN LUYỆN VÀ FINE-TUNING
+7.1. A — Baseline Pretrained
+Tải model/processor theo model card chính thức; chọn config infer (dtype, device map, quantization).
+Chạy 50–100 ảnh nhiều loại: đếm, màu sắc, hành động, quan hệ không gian, OCR, trường hợp thiếu thông tin.
+Dùng prompt chuẩn cho VQA và caption; đặt deterministic generation (do_sample=False) khi benchmark.
+Lưu predictions/base.jsonl, độ trễ từng mẫu, số token đầu ra, peak VRAM, version và seed.
+Xác nhận model có thể chạy ổn qua 5–10 lần liên tiếp, không lỗi chuyển ảnh hoặc OOM.
+7.2. B — Thiết lập LoRA/QLoRA
+QLoRA = lượng tử hóa trọng số model nền (thường 4-bit NF4) rồi huấn luyện adapter LoRA; không đồng nghĩa cập nhật toàn bộ trọng số đã lượng tử hóa. Với GPU ít VRAM, ưu tiên freeze Vision Encoder, LoRA ở một số lớp attention của language model, batch size 1, gradient accumulation và checkpointing. Chọn modules theo model thực tế và kiểm tra tên tham số trước khi đặt target_modules.
+# configs/qwen_qlora.yaml - tham số THAM KHẢO
+model:
+  name: Qwen/Qwen3-VL-2B-Instruct
+  load_in_4bit: true
+  quant_type: nf4
+  double_quant: true
+  freeze_vision: true
+lora:
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [q_proj, v_proj]
+training:
+  epochs: 2
+  batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  optimizer: paged_adamw_8bit
+  max_grad_norm: 1.0
+  eval_strategy: epoch
+  seed: 42
+data:
+  image_max_pixels: 262144
+output:
+  checkpoint_dir: checkpoints/qwen3vl
+  adapter_dir: adapters/qwen3vl-best
+Cấu hình là spec đầu vào cho script sẽ tự viết, chưa phải file có thể đưa trực tiếp vào mọi trainer. image_max_pixels là ngân sách tiền xử lý định hướng (~512×512), không bảo đảm số token ảnh cố định. Kiểm tra module names và BF16/FP16 theo GPU.
+7.3. C — Data Collator và loss
+Sử dụng AutoProcessor và apply_chat_template của model thay vì tự chèn image tokens.
+Ghép image tensors, input_ids, attention_mask, labels chính xác theo batch.
+Đặt labels=-100 cho padding, vùng prompt và image token không thuộc mục tiêu supervised text (theo cách trainer/model triển khai).
+Không đặt max_length ngắn đến mức cắt bỏ image tokens; kiểm tra độ dài thực tế và giới hạn ảnh.
+Unit test một batch: shapes khớp, có số token assistant được học >0, backward chạy không lỗi.
+7.4. D — Ba vòng training
+Vòng
+Quy mô
+Điều kiện qua vòng
+Smoke test
+16–32 mẫu, vài step
+Forward/backward OK; loss finite; checkpoint và reload OK
+Pilot
+500–1.000 mẫu
+Loss có xu hướng giảm; dự đoán hợp lệ; theo dõi OOM
+Full
+Toàn bộ train theo thiết kế
+Theo dõi validation; lưu best checkpoint; so sánh đủ experiment
+7.5. E — Quản lý thí nghiệm
+Chạy E0 = model gốc, E1 = VQA-only, E2 = 70/30 Multi-task; E3 50/50 nếu còn GPU.
+Mỗi run cố định seed, split, prompt, decoding để so sánh công bằng.
+Ghi train/val loss, LR, time/step, GPU max allocated, thời gian tổng và config.
+Sử dụng early stopping dựa trên validation khi phù hợp; tránh chọn checkpoint bằng test.
+Có resume khi Colab ngắt kết nối và giữ best adapter riêng với checkpoint tạm.
+7.6. F — Xuất model và nạp lại
+Lưu adapter_config.json và adapter_model.safetensors (tùy PEFT), cùng metadata base_model, dataset_version, training_config và metrics. Inference load base model + adapter để sử dụng; không cần gộp toàn bộ base weights vào repo. Kiểm tra chạy lại với tiến trình mới trước khi coi là hoàn thành.
+7.7. Lệnh CLI dự kiến
+python -m src.training.train \
+  --config configs/qwen_qlora.yaml
+python -m src.evaluation.evaluate_vqa \
+  --model base --split test
+python -m src.evaluation.evaluate_vqa \
+  --model finetuned --split test
+python app/main.py
+Các CLI trên mô tả giao diện mục tiêu. Chúng chỉ chạy được sau khi các module đã được lập trình, không phải lệnh sẵn có trong repository chưa tạo.
+8. PROMPT VÀ QUẢN LÝ ĐẦU RA
+8.1. Prompt VQA
+Bạn là trợ lý thị giác. Chỉ dùng những chi tiết
+thực sự quan sát được từ ảnh để trả lời.
+Trả lời bằng tiếng Việt, ngắn gọn và trực tiếp.
+Nếu không đủ thông tin, hãy nói "Không xác định
+được từ ảnh" và không tự suy đoán.
+Câu hỏi: {question}
+8.2. Prompt Caption
+Hãy mô tả nội dung chính của ảnh bằng tiếng Việt
+trong 1-2 câu. Nêu đối tượng chính, hành động và
+bối cảnh; không khẳng định chi tiết không rõ.
+8.3. Tham số sinh văn bản
+Benchmark: do_sample=False, max_new_tokens ví dụ 64 (VQA) / 128 (Caption), giữ cùng config giữa các model; giới hạn output để bớt VRAM và latency. Khi app sử dụng thật có thể cung cấp tùy chọn độ dài caption. Không dùng nhiệt độ thấp để che lỗi nhận diện ảnh; đo câu trả lời thực tế.
+9. ĐÁNH GIÁ, SO SÁNH VÀ PHÂN TÍCH LỖI
+9.1. VQA
+Metric
+Diễn giải
+Lưu ý
+Exact Match
+Câu trả lời trùng nhãn sau chuẩn hóa
+Nhạy với diễn đạt tương đương
+Token-level F1
+Mức khớp token đáp án
+Tokenizer tiếng Việt cần thống nhất
+Count Accuracy
+Đúng câu hỏi đếm số lượng
+Xây subtest count
+Color Accuracy
+Đúng câu hỏi màu sắc
+Dùng subtest color
+Abstention Accuracy
+Nhận biết khi ảnh không có thông tin
+Tránh bịa tên, vị trí, chi tiết
+Hallucination Rate
+Tỷ lệ thông tin sai/không được ảnh hỗ trợ
+Cần tiêu chí gán nhãn thủ công
+9.2. Captioning
+Dùng BLEU-4, ROUGE-L, CIDEr khi có nhiều câu mô tả chuẩn; có thể thêm BERTScore với model phù hợp tiếng Việt/đa ngôn ngữ. Đánh giá thủ công mức đúng sự thật, bao phủ ý chính, ngữ pháp và độ tự nhiên vì BLEU/CIDEr không phản ánh đầy đủ ngữ nghĩa.
+9.3. Hệ thống đo hiệu năng
+Đo latency ảnh → câu trả lời (p50/p95), peak VRAM, số token đầu ra, throughput nhỏ, thời gian khởi động, lỗi/OOM. Báo cáo cấu hình GPU và kích thước ảnh sử dụng. Không so sánh tốc độ khi một model chạy CPU và model khác chạy GPU mà không ghi rõ.
+9.4. Bảng kết quả mẫu (chờ chạy thực tế)
+Thí nghiệm
+VQA EM
+VQA F1
+CIDEr
+Peak VRAM
+E0: Qwen3-VL pretrained
+Chưa đo
+Chưa đo
+Chưa đo
+Chưa đo
+E1: Qwen + VQA LoRA
+Chưa đo
+Chưa đo
+Chưa đo
+Chưa đo
+E2: Qwen + Multi-task LoRA
+Chưa đo
+Chưa đo
+Chưa đo
+Chưa đo
+E3: SmolVLM (đối chứng)
+Chưa đo
+Chưa đo
+Chưa đo
+Chưa đo
+9.5. Bộ test bổ sung có gắn nhãn thủ công
+Nhóm
+Ví dụ câu hỏi
+Đáp án/chấm điểm
+Đếm
+Có bao nhiêu quả táo?
+Số đúng
+Màu sắc
+Chiếc áo màu gì?
+Màu đúng theo ảnh
+Vị trí
+Con mèo bên trái hay phải chiếc ghế?
+Quan hệ không gian đúng
+Hành động
+Người trong ảnh đang làm gì?
+Động từ/ý nghĩa đúng
+OCR
+Trên biển hiệu viết gì?
+Khớp văn bản nhìn thấy
+Không đủ thông tin
+Người trong ảnh tên gì?
+Không suy đoán danh tính
+Đề xuất 100–200 câu hỏi thủ công chia theo nhóm, giữ ảnh hoàn toàn ngoài train, kiểm tra chất lượng nhãn bằng người thứ hai. Mỗi lỗi được gắn tag: nhận diện, số lượng, màu, không gian, OCR, suy đoán, tiếng Việt, định dạng.
+10. GIAO DIỆN GRADIO VÀ TRẢI NGHIỆM NGƯỜI DÙNG
+10.1. Thiết kế trang
+Thành phần
+UI Gradio
+Mô tả
+Input ảnh
+gr.Image
+Preview và upload JPG/PNG/WebP
+Chọn tác vụ
+gr.Tabs / gr.Radio
+VQA / Captioning / Compare
+Nhập câu hỏi
+gr.Textbox
+Có gợi ý ví dụ
+Chọn model
+gr.Dropdown
+Base / Fine-tuned / SmolVLM
+Nút chạy
+gr.Button
+Gọi inference engine
+Output
+gr.Markdown / gr.Textbox
+Hiển thị câu trả lời tiếng Việt
+Lịch sử
+gr.Chatbot
+Các câu hỏi cùng ảnh trong phiên
+Đánh giá
+gr.Plot / Dataframe
+Biểu đồ và bảng thực nghiệm
+10.2. Chế độ Compare
+Chọn ảnh và câu hỏi một lần, chạy lần lượt Base và Fine-tuned để tránh phải đồng thời nạp hai model trên GPU ít VRAM. Hiển thị câu trả lời bên trái/bên phải, thời gian và peak VRAM; giữ giống nhau prompt, decoding và ảnh tiền xử lý.
+10.3. Sơ đồ UI
+AI Vision Assistant
++--------------------------------------------------+
+| Upload Image  | VQA / Caption / Compare           |
+| Preview       | Model: Base / LoRA                 |
+|               | Question: [..................]    |
+|               | [Analyze Image]                   |
++--------------------------------------------------+
+| AI Answer / Caption                              |
+| Latency | Model | VRAM | Copy Result              |
++--------------------------------------------------+
+| History / Examples / Evaluation (optional tabs)  |
++--------------------------------------------------+
+10.4. Phân tách xử lý giao diện
+load_model(model_name, adapter_path=None)
+prepare_image(image)
+answer_question(image, question, model)
+generate_caption(image, model)
+benchmark_model(model, dataset)
+Đây là chữ ký hàm đề xuất để triển khai, không phải mã đã có. Sử dụng cache model/processor và chiến lược unload để không nạp lại mỗi lượt bấm.
+11. KIỂM THỬ, BẢO MẬT VÀ TRIỂN KHAI
+11.1. Kiểm thử chức năng và tích hợp
+Upload: ảnh hợp lệ/ảnh hỏng/ảnh quá lớn/PNG RGBA/EXIF rotation; thông báo lỗi thân thiện.
+Inference: cùng ảnh + prompt + config cho kết quả định dạng đúng; không bị crash sau nhiều lần chạy.
+Adapter: load được adapter có base model đúng; báo lỗi rõ nếu model mismatch.
+Data: phát hiện trùng ảnh giữa split và bản ghi thiếu nhãn.
+Training: tiny batch backward, checkpoint, resume, loss hợp lệ, labels đúng.
+Benchmark: metrics tính được từ file predictions, không sử dụng dữ liệu train làm test.
+11.2. Giới hạn tài nguyên và an toàn
+Cần giới hạn kích thước ảnh, số pixel và độ dài câu hỏi để tránh cạn VRAM/treo app; xử lý ảnh lỗi trong try/except. Xóa ảnh tạm sau phiên nếu không cần lưu, không public giao diện Gradio có dữ liệu riêng tư nếu chưa thêm kiểm soát truy cập. Không commit token Hugging Face, khóa API hay đường dẫn nội bộ. Tôn trọng giấy phép model/dataset/repository khi sử dụng lại.
+11.3. Đóng gói ứng dụng
+MVP chạy local qua `python app/main.py`, port 7860. Trong README phải có hướng dẫn setup Python/CUDA, môi trường WSL2, tải model, đặt adapter, chạy demo, tái lập evaluation và lỗi thường gặp. Có thể thêm Docker GPU ở giai đoạn cuối nếu thời gian cho phép.
+12. KẾ HOẠCH 7 TUẦN VÀ SẢN PHẨM BÀN GIAO
+Tuần
+Nội dung
+Đầu ra và tiêu chí hoàn thành
+1
+Môi trường + Dataset
+CUDA OK; chuẩn hóa OpenViVQA/ViIC; split và manifest
+2
+Baseline VLM
+Inference ảnh; predictions baseline; đo VRAM/latency
+3
+LoRA/QLoRA pilot
+Collator test; smoke; train 500–1.000 mẫu; checkpoint/reload
+4
+Training chính
+VQA-only và Multi-task; best adapters; TensorBoard logs
+5
+Evaluation
+EM/F1/CIDEr, latency, phân tích lỗi, biểu đồ
+6
+Gradio app
+VQA, caption, compare, lịch sử, xử lý lỗi
+7
+QA + báo cáo
+README, tài liệu nghiên cứu, demo, slide, mã nguồn
+12.1. Phân công công việc (nếu làm nhóm)
+Nhóm việc
+Người phụ trách gợi ý
+Việc cụ thể
+Dataset
+1 thành viên
+Download/clean/split/manifest, test data
+Model/Training
+1–2 thành viên
+Processor, collator, QLoRA, tracking
+Evaluation
+1 thành viên
+Metrics, benchmark, test scenarios
+Ứng dụng/tích hợp
+1 thành viên
+Gradio UI, API nội bộ, compare
+Báo cáo
+Cả nhóm
+Kiến trúc, kết quả, minh chứng, demo
+13. RỦI RO VÀ PHƯƠNG ÁN DỰ PHÒNG
+Rủi ro
+Tác động
+Cách xử lý
+Không đủ VRAM
+OOM khi nạp/train
+Giảm pixels, max_new_tokens, batch; train SmolVLM hoặc cloud
+CUDA/lib version xung đột
+Không chạy được model
+Khóa phiên bản tương thích, đọc chính thức, test environment
+Train loss giảm nhưng test kém
+Không có cải thiện thực chất
+Đánh giá trên split độc lập, giảm overfit và rà soát dữ liệu
+Dataset rò rỉ ảnh
+Metrics bị thổi phồng
+Split theo image_id/hash và kiểm tra chéo nguồn
+Model trả lời sai/ảo giác
+Chất lượng ứng dụng thấp
+No-evidence test, training abstention, báo cáo lỗi
+OCR chữ nhỏ
+Sai nhãn chữ
+Tăng pixel có kiểm soát hoặc OCR riêng
+Đếm vật thể nhiều/che khuất
+Sai số lượng
+Bộ test count; YOLO tùy chọn, đánh giá riêng
+Cloud bị ngắt
+Mất tiến trình huấn luyện
+Checkpoint bền vững + resume
+License không phù hợp
+Không được phép công bố dữ liệu
+Rà soát license từng model, dataset, source repo
+14. TIÊU CHÍ NGHIỆM THU (CHECKLIST)
+☐  Chạy được ứng dụng, upload ảnh và chuẩn hóa ảnh an toàn.
+☐  Sinh caption tiếng Việt với cùng một hình ảnh.
+☐  Trả lời câu hỏi tiếng Việt dựa trên hình ảnh.
+☐  Có baseline từ pretrained model và file predictions.
+☐  Có training log thực tế, loss/val loss và LoRA adapter.
+☐  Nạp lại adapter thành công trong tiến trình inference mới.
+☐  Có số liệu VQA (EM/F1) và Captioning (BLEU/CIDEr hoặc chỉ số thích hợp).
+☐  Có đo latency và peak VRAM kèm điều kiện đo.
+☐  Có so sánh Base/Fine-tuned, phân tích ít nhất 10 ví dụ sai/đúng.
+☐  Có cấu trúc source rõ ràng, README, yêu cầu môi trường, hướng dẫn reproducibility.
+☐  Có báo cáo nội dung Deep Learning: kiến trúc, giả thuyết, phương pháp, kết quả, hạn chế.
+☐  Có demo cuối và danh mục nguồn tham khảo kèm giấy phép khi cần.
+15. CÁC REPOSITORY GITHUB CÓ SẴN ĐỂ THAM KHẢO
+Đây là những repository đã kiểm tra mô tả README trên GitHub (18/11/2026). “Demo chạy được theo README” không đồng nghĩa đã được nhóm kiểm thử độc lập trên RTX 3050/4050. Trước khi tái sử dụng code cần đọc giấy phép và kiểm tra phiên bản dependencies.
+1. KrishivGarg — BLIP-2 Image Captioning & VQA
+Mở GitHub repository
+Mức phù hợp: RẤT GIỐNG ỨNG DỤNG | Demo Gradio tích hợp caption + VQA với BLIP-2; có app.py/model.py.
+Nên tham khảo: Học luồng upload ảnh → model → caption/answer, bố cục giao diện và cơ chế load BLIP-2.
+Giới hạn: Chủ yếu inference, không phải full pipeline QLoRA tiếng Việt; BLIP-2 2.7B khá nặng.
+2. PRITHIVSAKTHIUR — Qwen-3VL-Multimodal-Understanding
+Mở GitHub repository
+Mức phù hợp: RẤT GIỐNG MODEL & UI | Qwen3-VL 4B, Gradio, image question, captioning, object pointing/detection.
+Nên tham khảo: Tham khảo integration Qwen3-VL, xử lý prompt, Gradio demo, hiển thị nhiều tác vụ.
+Giới hạn: Mô hình trong repo là 4B, không phù hợp nguyên bản GPU 4/6GB; không mặc định có LoRA train.
+3. Guoshuai-Li — BLIP-2 Caption & VQA + LoRA
+Mở GitHub repository
+Mức phù hợp: SÁT ĐỒ ÁN | Có inference, Gradio, baseline, mini LoRA few-shot và so sánh trước/sau.
+Nên tham khảo: Đọc cấu trúc notebooks/mini_finetune_lora.py, baseline.jsonl, adapters/ và workflow demo.
+Giới hạn: Tác giả ghi rõ demo scale nhỏ, hướng Colab A100; không dùng trực tiếp làm bằng chứng QLoRA local.
+4. QwenLM — Qwen3-VL chính thức
+Mở GitHub repository
+Mức phù hợp: REPO CHÍNH THỨC | Model, docs inference, web_demo_mm.py, qwen-vl-finetune.
+Nên tham khảo: Nguồn gốc đáng tin cậy nhất cho processor, chat template, input resize, training flags.
+Giới hạn: Mã nguồn rộng và nặng; cần chọn đúng model 2B và phiên bản tương thích.
+5. 2U1 — Qwen-VL-Series-Finetune
+Mở GitHub repository
+Mức phù hợp: FRAMEWORK FINE-TUNE | Pipeline hỗ trợ Qwen2/2.5/3-VL, có hướng dẫn huấn luyện và demo.
+Nên tham khảo: Tham khảo packing dataset, trainer, collator, module freeze, LoRA và inference sau train.
+Giới hạn: Hệ thống tổng quát nhiều model; cần tinh giản, kiểm tra dependencies mới và mức VRAM.
+6. o-l-l-i — simple-captioner
+Mở GitHub repository
+Mức phù hợp: APP CAPTIONING | Gradio chạy caption ảnh/video theo thư mục, hỗ trợ model Qwen và quantization.
+Nên tham khảo: Học batch processing, prompts, chọn model, quản lý VRAM, xuất kết quả.
+Giới hạn: Tập trung captioning; không phải nền tảng huấn luyện VQA.
+7. go2mansi — vlm-vision-chat-app
+Mở GitHub repository
+Mức phù hợp: APP CHAT | Streamlit + BLIP/LLaVA API, hỏi đáp dạng hội thoại và bộ nhớ phiên.
+Nên tham khảo: Tham khảo UX chat và quản lý lịch sử hỏi đáp nhiều lượt.
+Giới hạn: Có thành phần API; không phù hợp bê nguyên nếu yêu cầu local AI/LoRA.
+8. Yashkatiyar24 — Multimodal AI VQA
+Mở GitHub repository
+Mức phù hợp: DEMO NHẸ | Gradio với ViLT pretrained đã fine-tune VQA.
+Nên tham khảo: Học đường đi cực đơn giản ảnh + câu hỏi + inference + UI.
+Giới hạn: ViLT dạng VQA phân loại đáp án, không phải VLM generative đa tác vụ như mục tiêu.
+9. PRITHIVSAKTHIUR — Tiny-VLMs-Lab
+Mở GitHub repository
+Mức phù hợp: APP NHIỀU MODEL NHỎ | Gradio, chọn tiny VLM, caption/OCR/VQA, streaming/output.
+Nên tham khảo: Học model selector, generation parameters, UI phù hợp VRAM thấp.
+Giới hạn: Không tự động cung cấp pipeline fine-tuning tiếng Việt.
+10. tuanio — Vistral-V (Vietnamese VLM)
+Mở GitHub repository
+Mức phù hợp: NGHIÊN CỨU TIẾNG VIỆT | Visual instruction tuning hướng tiếng Việt, giải thích 2 giai đoạn.
+Nên tham khảo: Tham khảo cách chuẩn bị dữ liệu Việt, projector, frozen vision encoder và cách trình bày thí nghiệm.
+Giới hạn: Tài liệu huấn luyện nhắc GPU NVIDIA A100 40GB; không thể chuyển y nguyên sang RTX 3050/4050.
+11. haotian-liu — LLaVA
+Mở GitHub repository
+Mức phù hợp: NỀN TẢNG NGHIÊN CỨU | Repository LLaVA chính gốc có hướng dẫn architecture/train/fine-tuning.
+Nên tham khảo: Tham khảo kết nối vision+LLM, visual instruction tuning, dataset và benchmark.
+Giới hạn: Không phải giải pháp chạy trực tiếp trên GPU nhỏ nếu dùng model 7B/13B.
+15.1. Thứ tự đọc mã nguồn đề xuất
+Bắt đầu bằng KrishivGarg/BLIP-2 để thấy nhanh luồng hoàn chỉnh caption + VQA + Gradio.
+Xem PRITHIVSAKTHIUR/Qwen-3VL để học Qwen3-VL + UI (đổi từ 4B sang mục tiêu 2B).
+Đọc repo chính thức QwenLM/Qwen3-VL và 2U1/Qwen-VL-Series-Finetune để xây trainer/processor đúng.
+Đọc Guoshuai-Li/BLIP2 để xây pipeline baseline → LoRA → compare.
+Đọc simple-captioner và Tiny-VLMs-Lab để bổ sung batch caption, quản lý VRAM và UX.
+Tham khảo Vistral-V và LLaVA nếu cần thuyết minh kiến trúc học thuật sâu.
+15.2. Những gì nên học vs tự xây
+Có thể tham khảo kiến trúc/ý tưởng
+Phải tự điều chỉnh hoặc triển khai
+Gradio layout, inference wrapper, prompt templates
+Tiếng Việt, dataset mapping, câu hỏi, validation, test
+PEFT config, collator pattern, trainer callbacks
+VRAM 3050/4050, freeze LoRA modules, image budget
+CSV metrics, prediction logging, LoRA checkpoint
+Thí nghiệm Base/Finetuned và phân tích lỗi độc lập
+Model selector, chat history, batch caption
+Tích hợp một sản phẩm thống nhất, README và kiểm thử
+16. NGUỒN THAM KHẢO VÀ LIÊN KẾT HỌC THUẬT
+Các link sau là đường dẫn gốc của tài liệu model, dữ liệu, huấn luyện và thư viện. Ngày kiểm tra: 18/11/2026. Một số hướng dẫn có thể được cập nhật; lúc code phải ưu tiên phiên bản tương thích hiện thời.
+Qwen3-VL Official Repository — Model, inference, web demo, fine-tune
+Qwen3-VL 2B Model Card — Cách tải và sử dụng processor/model
+Qwen3-VL Official Fine-tuning — Scripts huấn luyện chính thức
+Qwen-VL-Series-Finetune — Cấu trúc trainer tham khảo
+TRL — Multimodal SFT — Collator, loss, images, training
+TRL Qwen3-VL SFT Notebook — Ví dụ Qwen3-VL fine-tuning
+SmolVLM Fine-tuning Cookbook — Huấn luyện model nhỏ trên GPU phổ thông
+SmolVLM 500M Model — Model dự phòng
+OpenViVQA Dataset — QA tiếng Việt
+OpenViVQA Paper — Bài báo nguồn dữ liệu VQA
+UIT-OpenViIC — Captioning tiếng Việt
+UIT-OpenViIC Paper — Bài báo nguồn dữ liệu caption
+VQA v2 — Benchmark tiếng Anh
+ViOCRVQA — Mở rộng OCR-VQA
+PyTorch CUDA Setup — Cài PyTorch đúng CUDA
+Hugging Face PEFT — LoRA/adapter documentation
+Hugging Face Transformers — Pretrained model + processor
+Gradio — UI Python
+17. KẾT LUẬN VÀ CÁC BƯỚC TRIỂN KHAI NGAY
+Định hướng nên chọn: Pretrained VLM → SFT trên OpenViVQA trước → Multi-task thêm UIT-OpenViIC → đo chất lượng bằng test độc lập → triển khai Gradio. Mô hình Qwen3-VL-2B là mục tiêu khi có GPU phù hợp; SmolVLM-500M là phương án an toàn để có training chạy được trên RTX 3050/4050 VRAM thấp.
+Trong tuần đầu, cần xác định chính xác phiên bản GPU/VRAM qua nvidia-smi, cài Python/torch CUDA, tải dữ liệu, chọn baseline và hoàn thiện script inference chạy trên một ảnh. Không xây UI phức tạp hoặc full training cho đến khi model chạy ổn định. Từ tuần 2 bắt đầu lưu số liệu thực tế làm bằng chứng cho báo cáo.
+Sản phẩm bàn giao cuối gồm: (1) mã nguồn Python và README, (2) dataset manifest + scripts chuẩn hóa, (3) LoRA adapter và checkpoint logs, (4) ứng dụng Gradio, (5) kết quả đánh giá + biểu đồ, (6) báo cáo kỹ thuật trình bày kiến trúc, phương pháp, thực nghiệm và giới hạn.

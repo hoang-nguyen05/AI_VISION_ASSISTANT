@@ -1,0 +1,6 @@
+{
+  "Exact Match": 62.4,
+  "Token F1": 74.8,
+  "BLEU-4": 32.5,
+  "ROUGE-L": 59.1
+}

@@ -1,0 +1,28 @@
+model:
+  default_model: "smolvlm" # Options: smolvlm, qwen
+  smolvlm_model_id: "HuggingFaceTB/SmolVLM-500M-Instruct"
+  qwen_model_id: "Qwen/Qwen2-VL-2B-Instruct"
+  device: "auto" # "cuda", "cpu", or "auto"
+  torch_dtype: "float16" # "bfloat16", "float16", "float32"
+  load_in_4bit: false # Requires bitsandbytes if True
+
+generation:
+  vqa:
+    max_new_tokens: 128
+    do_sample: false
+    temperature: 0.1
+    top_p: 0.9
+  caption:
+    max_new_tokens: 160
+    do_sample: false
+    temperature: 0.2
+    top_p: 0.9
+
+prompts:
+  vqa_system: "Bạn là trợ lý thị giác thông minh. Hãy quan sát kỹ hình ảnh và trả lời câu hỏi bằng tiếng Việt một cách chính xác, ngắn gọn và trung thực. Nếu hình ảnh không chứa đủ thông tin để trả lời, hãy nói rõ 'Không xác định được từ hình ảnh'."
+  caption_short: "Hãy mô tả ngắn gọn nội dung bức ảnh này bằng tiếng Việt trong 1-2 câu."
+  caption_detailed: "Hãy mô tả chi tiết các đối tượng, hành động, màu sắc và bối cảnh trong bức ảnh này bằng tiếng Việt."
+
+image:
+  max_pixels: 524288 # ~724x724
+  min_pixels: 3136 # 56x56

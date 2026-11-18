@@ -1,0 +1,44 @@
+model:
+  name: "HuggingFaceTB/SmolVLM-500M-Instruct"
+  torch_dtype: "bfloat16"
+  load_in_4bit: false
+  freeze_vision: true
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  bias: "none"
+  target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+
+training:
+  output_dir: "checkpoints/smolvlm_lora"
+  adapter_dir: "adapters/smolvlm_vietnamese_lora"
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0002
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  gradient_checkpointing: true
+  fp16: false
+  bf16: true
+  logging_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 100
+  save_strategy: "steps"
+  save_steps: 100
+  save_total_limit: 2
+  seed: 42
+
+data:
+  train_file: "data/processed/train.jsonl"
+  val_file: "data/processed/val.jsonl"
+  max_pixels: 262144 # 512x512
+  max_length: 512
