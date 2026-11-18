@@ -1,0 +1,2 @@
+{"id": "vqa_sample_0002", "image": "data/samples/sample_street.jpg", "question": "Người đi xe đạp đang mặc áo màu gì?", "prediction": "Điều này là một số câu hỏi.", "ground_truth": "Người đi xe đạp đang mặc áo màu xanh da trời.", "latency_sec": 5.197, "peak_vram_mb": 1342.28}
+{"id": "vqa_sample_0003", "image": "data/samples/sample_street.jpg", "question": "Thời tiết trong ảnh như thế nào?", "prediction": "2", "ground_truth": "Trời có vẻ quang đãng và có nắng nhẹ.", "latency_sec": 2.619, "peak_vram_mb": 1342.28}

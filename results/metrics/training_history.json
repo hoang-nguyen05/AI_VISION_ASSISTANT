@@ -1,162 +1,47 @@
 [
   {
-    "step": 10,
-    "epoch": 0.17,
-    "loss": 2.637,
-    "learning_rate": 0.000192,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
+    "step": 1,
+    "epoch": 0.167,
+    "loss": 17.971134185791016,
+    "eval_loss": null,
+    "learning_rate": 0.0,
+    "step_duration_sec": 297.233,
+    "peak_vram_mb": 1917.63
   },
   {
-    "step": 20,
-    "epoch": 0.33,
-    "loss": 2.369,
-    "learning_rate": 0.000184,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
+    "step": 2,
+    "epoch": 0.333,
+    "loss": 17.887208938598633,
+    "eval_loss": null,
+    "learning_rate": 0.0002,
+    "step_duration_sec": 286.041,
+    "peak_vram_mb": 1962.04
   },
   {
-    "step": 30,
+    "step": 3,
     "epoch": 0.5,
-    "loss": 2.079,
-    "learning_rate": 0.000176,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
+    "loss": 17.50617218017578,
+    "eval_loss": null,
+    "learning_rate": 0.00015000000000000001,
+    "step_duration_sec": 401.904,
+    "peak_vram_mb": 1962.04
   },
   {
-    "step": 40,
-    "epoch": 0.67,
-    "loss": 1.882,
-    "learning_rate": 0.000168,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
+    "step": 4,
+    "epoch": 0.667,
+    "loss": 16.326553344726562,
+    "eval_loss": null,
+    "learning_rate": 5.000000000000002e-05,
+    "step_duration_sec": 362.51,
+    "peak_vram_mb": 1982.32
   },
   {
-    "step": 50,
-    "epoch": 0.83,
-    "loss": 1.714,
-    "learning_rate": 0.00016,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 60,
-    "epoch": 1.0,
-    "loss": 1.511,
-    "learning_rate": 0.000152,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 70,
-    "epoch": 1.17,
-    "loss": 1.39,
-    "learning_rate": 0.000144,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 80,
-    "epoch": 1.33,
-    "loss": 1.287,
-    "learning_rate": 0.000136,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 90,
-    "epoch": 1.5,
-    "loss": 1.141,
-    "learning_rate": 0.000128,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 100,
-    "epoch": 1.67,
-    "loss": 1.069,
-    "learning_rate": 0.00012,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 110,
-    "epoch": 1.83,
-    "loss": 1.009,
-    "learning_rate": 0.000112,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 120,
-    "epoch": 2.0,
-    "loss": 0.9,
-    "learning_rate": 0.000104,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 130,
-    "epoch": 2.17,
-    "loss": 0.86,
-    "learning_rate": 9.6e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 140,
-    "epoch": 2.33,
-    "loss": 0.828,
-    "learning_rate": 8.8e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 150,
-    "epoch": 2.5,
-    "loss": 0.743,
-    "learning_rate": 8e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 160,
-    "epoch": 2.67,
-    "loss": 0.724,
-    "learning_rate": 7.2e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 170,
-    "epoch": 2.83,
-    "loss": 0.71,
-    "learning_rate": 6.4e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 180,
-    "epoch": 3.0,
-    "loss": 0.641,
-    "learning_rate": 5.6e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 190,
-    "epoch": 3.17,
-    "loss": 0.636,
-    "learning_rate": 4.8e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
-  },
-  {
-    "step": 200,
-    "epoch": 3.33,
-    "loss": 0.634,
-    "learning_rate": 4e-05,
-    "step_duration_sec": 1.25,
-    "peak_vram_mb": 1850.0
+    "step": 4,
+    "epoch": 0.667,
+    "loss": null,
+    "eval_loss": null,
+    "learning_rate": null,
+    "step_duration_sec": 362.512,
+    "peak_vram_mb": 1982.32
   }
 ]

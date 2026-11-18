@@ -1,0 +1,14 @@
+{
+  "base_model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+  "config_path": "configs/smolvlm_lora.yaml",
+  "smoke_test": true,
+  "train_loss": 17.422767162322998,
+  "metrics": {
+    "train_runtime": 1350.0107,
+    "train_samples_per_second": 0.003,
+    "train_steps_per_second": 0.003,
+    "total_flos": 10393686888576.0,
+    "train_loss": 17.422767162322998,
+    "epoch": 0.6666666666666666
+  }
+}
