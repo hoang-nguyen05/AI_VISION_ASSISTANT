@@ -32,33 +32,45 @@ def convert_openvivqa_to_jsonl(
     print("Tiền xử lý OpenViVQA và chuẩn hóa sang schema JSONL...")
     print("=" * 60)
     
-    # We will search for HF dataset format or raw json annotations
-    hf_path = data_dir / "openvivqa_hf"
-    raw_json = data_dir / "annotations.json"
-    
     records = []
     
-    if hf_path.exists():
-        from datasets import load_from_disk
-        ds = load_from_disk(str(hf_path))
-        print("Đang đọc từ Hugging Face dataset cache...")
-        for split in ds.keys():
-            for idx, item in enumerate(ds[split]):
-                q = item.get("question", "")
-                a = item.get("answer", "")
-                img_path = item.get("image_path", item.get("image", ""))
-                # If image is a PIL Image or relative path
-                img_id = item.get("id", f"{split}_{idx}")
+    # Check for VLSP json annotations in data_dir
+    vlsp_files = list(data_dir.glob("vlsp2023_*_data.json"))
+    images_dir = data_dir / "images"
+    
+    if vlsp_files:
+        print(f"Tìm thấy {len(vlsp_files)} file dữ liệu VLSP OpenViVQA trong {data_dir}...")
+        for vf in vlsp_files:
+            split_name = vf.stem.replace("vlsp2023_", "").replace("_data", "")
+            with open(vf, "r", encoding="utf-8") as f:
+                content = json.load(f)
+            
+            images_map = content.get("images", {})
+            annotations_map = content.get("annotations", {})
+            print(f"  Đọc {vf.name}: {len(images_map)} ảnh, {len(annotations_map)} câu hỏi-đáp.")
+            
+            for ann_id, ann in annotations_map.items():
+                img_key = str(ann.get("image_id", ""))
+                img_name = images_map.get(img_key, f"{img_key}.jpg")
+                
+                # Check potential image locations
+                img_path = images_dir / img_name
+                if not img_path.exists():
+                    img_path = images_dir / f"{split_name}-images" / img_name
+                if not img_path.exists():
+                    img_path = images_dir / "training-images" / img_name
+                if not img_path.exists():
+                    img_path = images_dir / "dev-images" / img_name
+                
                 records.append({
-                    "id": str(img_id),
-                    "image": str(img_path),
-                    "question": q,
-                    "answer": a,
-                    "split_source": split
+                    "id": f"{split_name}_{ann_id}",
+                    "image": str(img_path) if img_path.exists() else str(data_dir / "images" / img_name),
+                    "question": ann.get("question", ""),
+                    "answer": ann.get("answer", ""),
+                    "split_source": split_name
                 })
     else:
-        print(f"Chưa tìm thấy {hf_path}. Tạo dữ liệu mẫu chuẩn (Mock/Sample) để kiểm thử pipeline...")
-        # Create a rich sample set for smoke testing and offline development
+        print(f"Chưa tìm thấy VLSP json trong {data_dir}. Tạo dữ liệu mẫu chuẩn (Sample) để kiểm thử...")
         sample_records = [
             ("001", "data/samples/sample_table.jpg", "Trên bàn có bao nhiêu quả táo và chúng màu gì?", "Có 3 quả táo màu đỏ trên bàn."),
             ("002", "data/samples/sample_table.jpg", "Có cốc nước nào trên bàn không?", "Có một cốc nước trong suốt ở góc phải bàn."),
