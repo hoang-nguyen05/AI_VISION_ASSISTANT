@@ -11,7 +11,7 @@ from ..data.collator import MultimodalDataCollator
 from .callbacks import MetricsTrackerCallback
 from .export import save_lora_checkpoint
 
-def train(config_path: str, smoke_test: bool = False):
+def train(config_path: str, smoke_test: bool = False, max_steps_override: int = None):
     config = load_yaml_config(config_path)
     print("=" * 60)
     print(f"KHỞI ĐỘNG HUẤN LUYỆN SFT LORA / QLORA")
@@ -22,6 +22,9 @@ def train(config_path: str, smoke_test: bool = False):
     lora_cfg = config.get("lora", {})
     train_cfg = config.get("training", {})
     data_cfg = config.get("data", {})
+
+    if max_steps_override is not None and not smoke_test:
+        train_cfg["max_steps"] = max_steps_override
 
     model_name = model_cfg.get("name", "HuggingFaceTB/SmolVLM-500M-Instruct")
     load_in_4bit = model_cfg.get("load_in_4bit", False)
@@ -86,7 +89,7 @@ def train(config_path: str, smoke_test: bool = False):
 
     # 5. Training Arguments
     out_dir = PROJECT_ROOT / train_cfg.get("output_dir", "checkpoints")
-    max_steps = 4 if smoke_test else -1
+    max_steps = 4 if smoke_test else train_cfg.get("max_steps", -1)
     epochs = 1 if smoke_test else train_cfg.get("num_train_epochs", 3)
     grad_accum = 1 if smoke_test else train_cfg.get("gradient_accumulation_steps", 8)
 
@@ -149,5 +152,7 @@ if __name__ == "__main__":
                         help="Đường dẫn file cấu hình YAML")
     parser.add_argument("--smoke-test", action="store_true",
                         help="Chạy thử nghiệm nhanh vài step kiểm tra luồng")
+    parser.add_argument("--max-steps", type=int, default=None,
+                        help="Giới hạn số bước huấn luyện")
     args = parser.parse_args()
-    train(config_path=args.config, smoke_test=args.smoke_test)
+    train(config_path=args.config, smoke_test=args.smoke_test, max_steps_override=args.max_steps)
