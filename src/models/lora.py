@@ -1,5 +1,16 @@
+import sys
 from typing import Any, List, Optional
 import torch
+
+# Prevent torchao version check conflict in PEFT across Colab and Linux
+try:
+    import torchao
+    from packaging import version
+    if version.parse(getattr(torchao, "__version__", "0.0.0")) < version.parse("0.16.0"):
+        sys.modules["torchao"] = None
+except Exception:
+    sys.modules["torchao"] = None
+
 from peft import LoraConfig, get_peft_model, TaskType
 
 def get_default_target_modules(model_type: str = "smolvlm") -> List[str]:
