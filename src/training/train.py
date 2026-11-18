@@ -88,6 +88,7 @@ def train(config_path: str, smoke_test: bool = False):
     out_dir = PROJECT_ROOT / train_cfg.get("output_dir", "checkpoints")
     max_steps = 4 if smoke_test else -1
     epochs = 1 if smoke_test else train_cfg.get("num_train_epochs", 3)
+    grad_accum = 1 if smoke_test else train_cfg.get("gradient_accumulation_steps", 8)
 
     training_args = TrainingArguments(
         output_dir=str(out_dir),
@@ -95,10 +96,10 @@ def train(config_path: str, smoke_test: bool = False):
         max_steps=max_steps,
         per_device_train_batch_size=train_cfg.get("per_device_train_batch_size", 1),
         per_device_eval_batch_size=train_cfg.get("per_device_eval_batch_size", 1),
-        gradient_accumulation_steps=train_cfg.get("gradient_accumulation_steps", 8),
+        gradient_accumulation_steps=grad_accum,
         learning_rate=float(train_cfg.get("learning_rate", 2e-4)),
         weight_decay=float(train_cfg.get("weight_decay", 0.01)),
-        warmup_ratio=float(train_cfg.get("warmup_ratio", 0.05)),
+        warmup_steps=1 if smoke_test else int(train_cfg.get("warmup_steps", 10)),
         lr_scheduler_type=train_cfg.get("lr_scheduler_type", "cosine"),
         gradient_checkpointing=train_cfg.get("gradient_checkpointing", True),
         bf16=(torch_dtype == "bfloat16"),

@@ -127,11 +127,18 @@ class VisionAssistantEngine:
             prompt_text = f"<|im_start|>user\n{text_prompt}<|im_end|>\n<|im_start|>assistant\n"
 
         # Prepare inputs
-        inputs = self.processor(
-            text=prompt_text,
-            images=image,
-            return_tensors="pt"
-        )
+        try:
+            inputs = self.processor(
+                text=prompt_text,
+                images=[image],
+                return_tensors="pt"
+            )
+        except Exception:
+            inputs = self.processor(
+                text=prompt_text,
+                images=image,
+                return_tensors="pt"
+            )
         
         device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}

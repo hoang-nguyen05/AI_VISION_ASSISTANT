@@ -8,12 +8,12 @@ model:
 
 generation:
   vqa:
-    max_new_tokens: 128
+    max_new_tokens: 64
     do_sample: false
     temperature: 0.1
     top_p: 0.9
   caption:
-    max_new_tokens: 160
+    max_new_tokens: 96
     do_sample: false
     temperature: 0.2
     top_p: 0.9

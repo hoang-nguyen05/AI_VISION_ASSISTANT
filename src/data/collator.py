@@ -36,24 +36,20 @@ class MultimodalDataCollator:
             images.append(item["image"])
             
         # Call processor with text and images
+        # Do NOT apply hard truncation to prevent cutting visual image tokens!
         try:
-            batch_inputs = self.processor(
-                text=texts,
-                images=images,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=self.max_length
-            )
-        except Exception:
-            # Fallback if image parameter expects list of lists
             batch_inputs = self.processor(
                 text=texts,
                 images=[[img] for img in images],
                 return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=self.max_length
+                padding=True
+            )
+        except Exception:
+            batch_inputs = self.processor(
+                text=texts,
+                images=images,
+                return_tensors="pt",
+                padding=True
             )
 
         # Clone input_ids for labels
